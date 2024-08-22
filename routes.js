@@ -1,14 +1,10 @@
-/** Routes for Lunchly */
-
 const express = require("express");
-
 const Customer = require("./models/customer");
 const Reservation = require("./models/reservation");
 
 const router = new express.Router();
 
 /** Homepage: show list of customers. */
-
 router.get("/", async function(req, res, next) {
   try {
     const customers = await Customer.all();
@@ -18,8 +14,29 @@ router.get("/", async function(req, res, next) {
   }
 });
 
-/** Form to add a new customer. */
+/** Search for customers by name. */
+router.get('/customers/search', async (req, res, next) => {
+  try {
+      const { q } = req.query;
+      const customers = await Customer.searchByName(q);  // Implement the search method in your Customer model
+      return res.render('customer_list.html', { customers });
+  } catch (err) {
+      return next(err);
+  }
+});
 
+/** Show the top 10 customers with the most reservations. */
+router.get("/best-customers", async (req, res, next) => {
+  try {
+    const customers = await Customer.getTopCustomers();
+    return res.render("customer_list.html", { customers });
+  } catch (err) {
+    console.error('Error in /best-customers route:', err);
+    return next(err);
+  }
+});
+
+/** Form to add a new customer. */
 router.get("/add/", async function(req, res, next) {
   try {
     return res.render("customer_new_form.html");
@@ -29,13 +46,9 @@ router.get("/add/", async function(req, res, next) {
 });
 
 /** Handle adding a new customer. */
-
 router.post("/add/", async function(req, res, next) {
   try {
-    const firstName = req.body.firstName;
-    const lastName = req.body.lastName;
-    const phone = req.body.phone;
-    const notes = req.body.notes;
+    const { firstName, lastName, phone, notes } = req.body;
 
     const customer = new Customer({ firstName, lastName, phone, notes });
     await customer.save();
@@ -47,11 +60,9 @@ router.post("/add/", async function(req, res, next) {
 });
 
 /** Show a customer, given their ID. */
-
 router.get("/:id/", async function(req, res, next) {
   try {
     const customer = await Customer.get(req.params.id);
-
     const reservations = await customer.getReservations();
 
     return res.render("customer_detail.html", { customer, reservations });
@@ -61,11 +72,9 @@ router.get("/:id/", async function(req, res, next) {
 });
 
 /** Show form to edit a customer. */
-
 router.get("/:id/edit/", async function(req, res, next) {
   try {
     const customer = await Customer.get(req.params.id);
-
     res.render("customer_edit_form.html", { customer });
   } catch (err) {
     return next(err);
@@ -73,7 +82,6 @@ router.get("/:id/edit/", async function(req, res, next) {
 });
 
 /** Handle editing a customer. */
-
 router.post("/:id/edit/", async function(req, res, next) {
   try {
     const customer = await Customer.get(req.params.id);
@@ -90,7 +98,6 @@ router.post("/:id/edit/", async function(req, res, next) {
 });
 
 /** Handle adding a new reservation. */
-
 router.post("/:id/add-reservation/", async function(req, res, next) {
   try {
     const customerId = req.params.id;
@@ -111,5 +118,48 @@ router.post("/:id/add-reservation/", async function(req, res, next) {
     return next(err);
   }
 });
+
+router.get("/:id/edit-reservation/:reservationId", async function (req, res, next) {
+  try {
+    const customer = await Customer.get(req.params.id);
+    const reservation = await Reservation.get(req.params.reservationId);
+
+    // Format start_at to match input datetime-local format (YYYY-MM-DDTHH:MM)
+    const formattedStartAt = reservation.startAt.toISOString().slice(0, 16);
+
+    return res.render("reservation_edit_form.html", { customer, reservation, formattedStartAt });
+  } catch (err) {
+    console.error("Error in /:id/edit-reservation/:reservationId route:", err);
+    return next(err);
+  }
+});
+
+
+/** Handle form submission to edit an existing reservation */
+router.post("/:id/edit-reservation/:reservationId", async (req, res, next) => {
+  try {
+    const reservation = await Reservation.get(req.params.reservationId);
+    reservation.numGuests = req.body.numGuests;
+    reservation.notes = req.body.notes;
+
+    const startAt = new Date(req.body.startAt);
+    if (isNaN(startAt.getTime())) {
+      throw new Error("Invalid startAt value; must be a valid Date object.");
+    }
+    reservation.startAt = startAt;
+
+    await reservation.save();
+
+    return res.redirect(`/${req.params.id}/`);
+  } catch (err) {
+    console.error("Error in /:id/edit-reservation/:reservationId route:", err);
+    return next(err);
+  }
+});
+
+
+
+
+
 
 module.exports = router;

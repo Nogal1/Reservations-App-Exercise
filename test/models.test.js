@@ -11,7 +11,7 @@ test('can get all customers', async () => {
 });
 
 test('can save a new customer', async () => {
-  const customer = new Customer({ firstName: 'Test', lastName: 'User' });
+  const customer = new Customer({ firstName: 'Test', lastName: 'User', notes:''});
   await customer.save();
   expect(customer.id).toBeDefined();
 });

@@ -1,9 +1,5 @@
-/** Customer for Lunchly */
-
 const db = require("../db");
 const Reservation = require("./reservation");
-
-/** Customer of the restaurant. */
 
 class Customer {
   constructor({ id, firstName, lastName, phone, notes }) {
@@ -14,8 +10,13 @@ class Customer {
     this.notes = notes;
   }
 
-  /** find all customers. */
+  /** Getter to return the customer's full name. */
+  get fullName() {
+    return `${this.firstName} ${this.lastName}`;
+  }
 
+
+  /** find all customers. */
   static async all() {
     const results = await db.query(
       `SELECT id, 
@@ -30,7 +31,6 @@ class Customer {
   }
 
   /** get a customer by ID. */
-
   static async get(id) {
     const results = await db.query(
       `SELECT id, 
@@ -54,13 +54,11 @@ class Customer {
   }
 
   /** get all reservations for this customer. */
-
   async getReservations() {
     return await Reservation.getReservationsForCustomer(this.id);
   }
 
   /** save this customer. */
-
   async save() {
     if (this.id === undefined) {
       const result = await db.query(
@@ -77,6 +75,34 @@ class Customer {
         [this.firstName, this.lastName, this.phone, this.notes, this.id]
       );
     }
+  }
+
+    /** Get top 10 customers by number of reservations. */
+  static async getTopCustomers() {
+    const results = await db.query(
+      `SELECT c.id,
+              c.first_name AS "firstName",
+              c.last_name AS "lastName",
+              COUNT(r.id) AS "reservationCount"
+         FROM customers c
+         LEFT JOIN reservations r ON c.id = r.customer_id
+         GROUP BY c.id
+         ORDER BY "reservationCount" DESC
+         LIMIT 10`
+    );
+
+    return results.rows.map(c => new Customer(c));
+  }
+
+    /** Search for customers by name. */
+    static async searchByName(query) {
+      const results = await db.query(
+          `SELECT id, first_name AS "firstName", last_name AS "lastName", phone, notes
+           FROM customers
+           WHERE first_name ILIKE $1 OR last_name ILIKE $1`,
+          [`%${query}%`]
+      );
+      return results.rows.map(row => new Customer(row));
   }
 }
 
